@@ -42,7 +42,6 @@
         
         #labels-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
         
-        /* Ölçü Yazılarını daha belirgin yaptık */
         .dim-label {
             position: absolute; background: rgba(15, 20, 30, 0.9); border: 1px solid #ffaa00; color: #ffaa00;
             padding: 4px 8px; border-radius: 4px; font-size: 13px; font-weight: bold; font-family: monospace;
@@ -73,11 +72,11 @@
         <div class="input-group"><label>Kütle Birimi:</label><input type="text" id="unit-mass" value="g"></div>
         
         <h3>Cihaz Hataları (Mutlak)</h3>
-        <div class="input-group"><label>Tartı (&Delta;m):</label><input type="number" id="delta-m" value="0.01" step="0.01"></div>
-        <div class="input-group"><label>Kumpas (&Delta;x):</label><input type="number" id="delta-x" value="0.005" step="0.001"></div>
+        <div class="input-group"><label>Tartı (&Delta;m):</label><input type="text" id="delta-m" value="0.01"></div>
+        <div class="input-group"><label>Kumpas (&Delta;x):</label><input type="text" id="delta-x" value="0.005"></div>
         
         <h3>Ölçümler</h3>
-        <div class="input-group"><label>Kütle (m):</label><input type="number" id="val-m" value="150"></div>
+        <div class="input-group"><label>Kütle (m):</label><input type="text" id="val-m" value="150"></div>
         
         <div id="dynamic-inputs"></div>
         
@@ -89,8 +88,9 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Daha güvenilir bir CDN altyapısına geçildi -->
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
         const scene = new THREE.Scene();
@@ -102,8 +102,14 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
+        // EKLENTİ ÇÖKME KORUMASI (Ağ engellese bile siyah ekranda kalmaz)
+        let controls = null;
+        try {
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+        } catch(e) {
+            console.warn("Kamera kontrolleri yüklenemedi, sabit kamera kullanılacak.");
+        }
         
         scene.add(new THREE.AmbientLight(0x404040, 2));
         const dirLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -122,8 +128,7 @@
             color: 0x0088ff, metalness: 0.1, roughness: 0.1, transparent: true, opacity: 0.6, side: THREE.DoubleSide
         });
         
-        // Çizgileri Mavi üstünde patlasın diye Turuncu (ffaa00) yaptık
-        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffaa00, depthTest: false, linewidth: 2 });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffaa00, depthTest: false });
 
         function addDimension(start, end, text, anchor) {
             const points = [start, end];
@@ -145,29 +150,37 @@
             let html = '';
             
             if(type === 'cylinder') {
-                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="number" id="val-r" value="5"></div>`;
-                html += `<div class="input-group"><label>Yükseklik (h):</label><input type="number" id="val-h" value="10"></div>`;
+                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="text" id="val-r" value="5"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (h):</label><input type="text" id="val-h" value="10"></div>`;
             } else if(type === 'prism') {
-                html += `<div class="input-group"><label>Kenar (a):</label><input type="number" id="val-a" value="8"></div>`;
-                html += `<div class="input-group"><label>Kenar (b):</label><input type="number" id="val-b" value="6"></div>`;
-                html += `<div class="input-group"><label>Yükseklik (c):</label><input type="number" id="val-c" value="12"></div>`;
+                html += `<div class="input-group"><label>Kenar (a):</label><input type="text" id="val-a" value="8"></div>`;
+                html += `<div class="input-group"><label>Kenar (b):</label><input type="text" id="val-b" value="6"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (c):</label><input type="text" id="val-c" value="12"></div>`;
             } else if(type === 'sphere') {
-                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="number" id="val-r" value="6"></div>`;
+                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="text" id="val-r" value="6"></div>`;
             }
             container.innerHTML = html;
             calculate();
         }
 
+        // VİRGÜL DÜZELTİCİ FONKSİYON (Türkçe klavye uyumu)
         function safeVal(id, fallback = 0.0001) {
             const el = document.getElementById(id);
             if(!el) return fallback;
-            const val = parseFloat(el.value);
+            // İçindeki virgülü zorla noktaya çevir ki sistem anlayabilsin
+            let valStr = el.value.replace(',', '.');
+            const val = parseFloat(valStr);
             return (isNaN(val) || val === 0) ? fallback : val;
         }
 
         function calculate() {
             if(currentMesh) scene.remove(currentMesh);
-            lineGroup.clear();
+            
+            // Çizgileri güvenli temizleme yöntemi (Eski sürüm çökmelerine karşı)
+            while(lineGroup.children.length > 0){ 
+                lineGroup.remove(lineGroup.children[0]); 
+            }
+            
             labelsContainer.innerHTML = '';
             activeLabels = [];
 
@@ -192,10 +205,7 @@
                 
                 currentMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), material);
                 
-                // r ÇİZGİSİ: Şeklin içine girmesin diye üst kapağın biraz üzerine (h/2 + 0.5) havaya kaldırdık
                 addDimension(new THREE.Vector3(0, h/2 + 0.5, 0), new THREE.Vector3(r, h/2 + 0.5, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2, h/2 + 1.2, 0));
-                
-                // h ÇİZGİSİ: Şeklin dışına (r + 1.5) taşırdık
                 addDimension(new THREE.Vector3(r + 1.5, -h/2, 0), new THREE.Vector3(r + 1.5, h/2, 0), `h = ${h} ${unitL}`, new THREE.Vector3(r + 2.5, 0, 0));
                 
             } else if(type === 'prism') {
@@ -226,7 +236,6 @@
                 currentMesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 32), material);
                 currentMesh.position.y = r;
                 
-                // r ÇİZGİSİ: Kürenin merkezinden dışarı doğru çok net bir şekilde çizdik
                 addDimension(new THREE.Vector3(0, r, 0), new THREE.Vector3(r + 0.5, r, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2 + 0.5, r + 0.8, 0));
             }
             
@@ -244,7 +253,7 @@
         const tempV = new THREE.Vector3();
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
+            if(controls) controls.update();
             
             activeLabels.forEach(item => {
                 tempV.copy(item.pos);
@@ -268,6 +277,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // Simülasyonu başlat
         updateUI();
         animate();
     </script>
