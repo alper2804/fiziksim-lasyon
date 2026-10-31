@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Fizik Hata Analizi</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a10;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+        .glass-panel {
+            position: absolute;
+            background: rgba(15, 15, 25, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #left-panel {
+            top: 20px; left: 20px;
+            width: 280px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #right-panel {
+            top: 20px; right: 20px;
+            width: 300px;
+        }
+        h2 { font-size: 18px; margin-top: 0; color: #4facfe; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px;}
+        h3 { font-size: 14px; color: #aaa; margin-bottom: 5px;}
+        
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 12px; margin-bottom: 4px; color: #ddd; }
+        input, select {
+            width: 100%; padding: 8px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white; border-radius: 6px;
+            box-sizing: border-box; outline: none;
+            transition: 0.3s;
+        }
+        input:focus, select:focus { border-color: #4facfe; }
+        
+        button {
+            width: 100%; padding: 12px; margin-top: 10px;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            border: none; color: #000; font-weight: bold;
+            border-radius: 6px; cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { box-shadow: 0 0 15px rgba(79, 172, 254, 0.5); transform: scale(1.02); }
+
+        .result-box {
+            background: rgba(0,0,0,0.4); padding: 15px;
+            border-radius: 8px; margin-top: 15px;
+            border-left: 4px solid #4facfe;
+        }
+        .result-value { font-size: 22px; font-weight: bold; color: #00f2fe; margin: 10px 0;}
+        .result-detail { font-size: 13px; color: #bbb; line-height: 1.5;}
+
+        /* 3D Ekran Üzerinde Yüzen Etiketler */
+        .dimension-marker {
+            position: absolute;
+            color: #ff007f;
+            font-weight: bold;
+            font-size: 14px;
+            background: rgba(0,0,0,0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #ff007f;
+            pointer-events: none;
+            z-index: 5;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+        }
+        
+        /* Scrollbar Gizleme */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Boyut Etiketlerini Tutan Kapsayıcı -->
+    <div id="markers-container"></div>
+
+    <!-- Sol Kontrol Paneli -->
+    <div id="left-panel" class="glass-panel">
+        <h2>Fizik Hata Simülatörü</h2>
+        
+        <div class="form-group">
+            <label>Şekil Seçiniz</label>
+            <select id="shape-select" onchange="toggleInputs()">
+                <option value="cylinder">Silindir</option>
+                <option value="prism">Dikdörtgenler Prizması</option>
+                <option value="sphere">Küre</option>
+            </select>
+        </div>
+
+        <h3>Cihaz Hassasiyetleri</h3>
+        <div class="form-group">
+            <label>Tarti Hatası (Δm)</label>
+            <input type="number" id="deltaM" value="0.01" step="0.001">
+        </div>
+        <div class="form-group">
+            <label>Kumpas Hatası (Δx)</label>
+            <input type="number" id="deltaX" value="0.005" step="0.001">
+        </div>
+
+        <h3>Ölçüm Verileri</h3>
+        <div class="form-group">
+            <label>Kütle (m)</label>
+            <input type="number" id="mass" value="150">
+        </div>
+
+        <!-- Silindir / Küre Ortak -->
+        <div class="form-group" id="input-r">
+            <label>Yarıçap (r)</label>
+            <input type="number" id="val-r" value="5">
+        </div>
+        
+        <!-- Silindir Özel -->
+        <div class="form-group" id="input-h">
+            <label>Yükseklik (h)</label>
+            <input type="number" id="val-h" value="10">
+        </div>
+
+        <!-- Prizma Özel -->
+        <div class="form-group" id="input-a" style="display:none;">
+            <label>Kenar (a)</label>
+            <input type="number" id="val-a" value="4">
+        </div>
+        <div class="form-group" id="input-b" style="display:none;">
+            <label>Yükseklik (b)</label>
+            <input type="number" id="val-b" value="8">
+        </div>
+        <div class="form-group" id="input-c" style="display:none;">
+            <label>Kenar (c)</label>
+            <input type="number" id="val-c" value="6">
+        </div>
+
+        <button onclick="calculateAndRender()">Hesapla & Çiz</button>
+    </div>
+
+    <!-- Sağ Sonuç Paneli -->
+    <div id="right-panel" class="glass-panel">
+        <h2>Analiz Raporu</h2>
+        <div class="result-box">
+            <div style="font-size:12px; color:#aaa;">Yoğunluk (ρ) Sonucu:</div>
+            <div class="result-value" id="res-rho">0.000</div>
+            <div class="result-detail" id="res-detail">
+                Lütfen ölçümleri girip hesapla butonuna basın.
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js ve OrbitControls kütüphaneleri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- 1. ARAYÜZ (UI) MANTIĞI ---
+        function toggleInputs() {
+            const shape = document.getElementById('shape-select').value;
+            
+            document.getElementById('input-r').style.display = 'none';
+            document.getElementById('input-h').style.display = 'none';
+            document.getElementById('input-a').style.display = 'none';
+            document.getElementById('input-b').style.display = 'none';
+            document.getElementById('input-c').style.display = 'none';
+
+            if (shape === 'cylinder') {
+                document.getElementById('input-r').style.display = 'block';
+                document.getElementById('input-h').style.display = 'block';
+            } else if (shape === 'prism') {
+                document.getElementById('input-a').style.display = 'block';
+                document.getElementById('input-b').style.display = 'block';
+                document.getElementById('input-c').style.display = 'block';
+            } else if (shape === 'sphere') {
+                document.getElementById('input-r').style.display = 'block';
+            }
+        }
+
+        // --- 2. THREE.JS 3D SAHNE KURULUMU ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0a10, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 20, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Işıklar
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0x00f2fe, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const dirLight2 = new THREE.DirectionalLight(0xff007f, 0.5);
+        dirLight2.position.set(-10, -20, -10);
+        scene.add(dirLight2);
+
+        // Zemin Izgarası (Grid Floor)
+        const gridHelper = new THREE.GridHelper(100, 50, 0x4facfe, 0x222222);
+        gridHelper.position.y = -10;
+        scene.add(gridHelper);
+
+        // Atmosferik Toz Parçacıkları (Dust Particles)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1000;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ size: 0.1, color: 0x4facfe, transparent: true, opacity: 0.6 });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // Şekil ve Etiket Değişkenleri
+        let currentMesh = null;
+        let activeMarkers = [];
+
+        // Şekil Materyali (Yarı Saydam Glassmorphism)
+        const material = new THREE.MeshPhysicalMaterial({ 
+            color: 0x4facfe, 
+            metalness: 0.2, 
+            roughness: 0.1, 
+            transparent: true, 
+            opacity: 0.8,
+            transmission: 0.5,
+            side: THREE.DoubleSide
+        });
+
+        // --- 3. HESAPLAMA VE ÇİZİM MANTIĞI ---
+        function calculateAndRender() {
+            const shape = document.getElementById('shape-select').value;
+            const dm = parseFloat(document.getElementById('deltaM').value);
+            const dx = parseFloat(document.getElementById('deltaX').value);
+            const m = parseFloat(document.getElementById('mass').value);
+
+            let vol = 0, rho = 0, relError = 0, absError = 0;
+            
+            // Sahnedeki eski şekli ve etiketleri temizle
+            if (currentMesh) scene.remove(currentMesh);
+            document.getElementById('markers-container').innerHTML = '';
+            activeMarkers = [];
+
+            if (shape === 'cylinder') {
+                const r = parseFloat(document.getElementById('val-r').value);
+                const h = parseFloat(document.getElementById('val-h').value);
+                
+                vol = Math.PI * Math.pow(r, 2) * h;
+                rho = m / vol;
+                relError = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(2*dx/r, 2) + Math.pow(dx/h, 2));
+                absError = rho * relError;
+
+                const geo = new THREE.CylinderGeometry(r, r, h, 32);
+                currentMesh = new THREE.Mesh(geo, material);
+                
+                // Etiket Noktaları
+                addMarker(`r = ${r}`, new THREE.Vector3(r/2, h/2, 0));
+                addMarker(`h = ${h}`, new THREE.Vector3(r + 1, 0, 0));
+
+            } else if (shape === 'prism') {
+                const a = parseFloat(document.getElementById('val-a').value);
+                const b = parseFloat(document.getElementById('val-b').value);
+                const c = parseFloat(document.getElementById('val-c').value);
+
+                vol = a * b * c;
+                rho = m / vol;
+                relError = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(dx/a, 2) + Math.pow(dx/b, 2) + Math.pow(dx/c, 2));
+                absError = rho * relError;
+
+                const geo = new THREE.BoxGeometry(a, b, c);
+                currentMesh = new THREE.Mesh(geo, material);
+
+                // Etiket Noktaları
+                addMarker(`a = ${a}`, new THREE.Vector3(0, -b/2, c/2));
+                addMarker(`b = ${b}`, new THREE.Vector3(a/2 + 1, 0, c/2));
+                addMarker(`c = ${c}`, new THREE.Vector3(a/2, -b/2, 0));
+
+            } else if (shape === 'sphere') {
+                const r = parseFloat(document.getElementById('val-r').value);
+                
+                vol = (4/3) * Math.PI * Math.pow(r, 3);
+                rho = m / vol;
+                relError = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(3*dx/r, 2));
+                absError = rho * relError;
+
+                const geo = new THREE.SphereGeometry(r, 64, 64);
+                currentMesh = new THREE.Mesh(geo, material);
+
+                // Etiket Noktası
+                addMarker(`r = ${r}`, new THREE.Vector3(r/2, r/2, 0));
+            }
+
+            scene.add(currentMesh);
+
+            // Sağ Panel Sonuç Yazdırma
+            document.getElementById('res-rho').innerText = `${rho.toFixed(4)}`;
+            document.getElementById('res-detail').innerHTML = `
+                <b>Hacim (V):</b> ${vol.toFixed(2)}<br><br>
+                <b>Bağıl Hata:</b> %${(relError * 100).toFixed(2)}<br>
+                <b>Mutlak Hata:</b> ±${absError.toFixed(4)}<br><br>
+                <span style="color:#00f2fe; font-size:14px;">Rapor: <b>(${rho.toFixed(3)} ± ${absError.toFixed(3)})</b></span>
+            `;
+        }
+
+        // --- 4. 3D DÜNYADAN HTML'E ETİKET YANSITMA ---
+        function addMarker(text, position) {
+            const el = document.createElement('div');
+            el.className = 'dimension-marker';
+            el.innerText = text;
+            document.getElementById('markers-container').appendChild(el);
+            
+            activeMarkers.push({ element: el, pos: position });
+        }
+
+        function updateMarkers() {
+            activeMarkers.forEach(marker => {
+                const vector = marker.pos.clone();
+                // 3D koordinatı 2D ekran koordinatına çevir (Projection)
+                vector.project(camera);
+                
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (vector.y * -.5 + .5) * window.innerHeight;
+                
+                // Eğer obje kameranın arkasındaysa etiketi gizle
+                if (vector.z > 1) {
+                    marker.element.style.display = 'none';
+                } else {
+                    marker.element.style.display = 'block';
+                    marker.element.style.left = `${x}px`;
+                    marker.element.style.top = `${y}px`;
+                }
+            });
+        }
+
+        // Animasyon Döngüsü
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            particlesMesh.rotation.y += 0.0005; // Tozlar yavaşça dönsün
+            
+            updateMarkers(); // Etiket pozisyonlarını güncelle
+            renderer.render(scene, camera);
+        }
+
+        // Pencere Boyutu Değişince
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // İlk Yükleme
+        toggleInputs();
+        calculateAndRender();
+        animate();
+    </script>
+</body>
+</html>
