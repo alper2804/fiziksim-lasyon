@@ -6,39 +6,23 @@
     <title>3D Fizik Hata & Yoğunluk Simülasyonu</title>
     <style>
         body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #0b0e14;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #fff;
+            margin: 0; overflow: hidden; background-color: #0b0e14;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff;
         }
         #canvas-container { width: 100vw; height: 100vh; }
         
-        /* Sol Kontrol Paneli */
         #ui-panel {
-            position: absolute;
-            top: 15px; left: 15px;
-            background: rgba(15, 20, 30, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 15px 20px;
-            border-radius: 12px;
-            width: 300px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            z-index: 100;
+            position: absolute; top: 15px; left: 15px;
+            background: rgba(15, 20, 30, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1); padding: 15px 20px;
+            border-radius: 12px; width: 300px; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100;
         }
         
-        /* Şık Scrollbar */
         #ui-panel::-webkit-scrollbar { width: 6px; }
         #ui-panel::-webkit-scrollbar-thumb { background: rgba(0, 234, 141, 0.5); border-radius: 3px; }
         
-        h2 {
-            margin-top: 0; font-size: 1.1rem; color: #00ea8d;
-            border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 15px;
-        }
+        h2 { margin-top: 0; font-size: 1.1rem; color: #00ea8d; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 15px; }
         h3 { font-size: 0.9rem; color: #aaa; margin: 15px 0 5px 0; border-bottom: 1px dashed #333; padding-bottom: 3px; }
         
         .input-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -49,33 +33,21 @@
         }
         .input-group input[type="text"] { color: #fff; }
         
-        /* Sonuç Kartı */
         #result-box {
-            margin-top: 15px; padding: 12px;
-            background: rgba(0, 234, 141, 0.1);
-            border: 1px solid rgba(0, 234, 141, 0.3);
-            border-radius: 8px;
+            margin-top: 15px; padding: 12px; background: rgba(0, 234, 141, 0.1);
+            border: 1px solid rgba(0, 234, 141, 0.3); border-radius: 8px;
         }
         .result-row { margin-bottom: 5px; font-size: 0.85rem; }
         .result-highlight { font-size: 1rem; color: #00ea8d; font-weight: bold; margin-top: 8px; display: block; }
         
-        /* 3D Üzerindeki Dinamik Yazılar (Ölçü Çizgisi Etiketleri) */
-        #labels-container {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50;
-        }
+        #labels-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+        
+        /* Ölçü Yazılarını daha belirgin yaptık */
         .dim-label {
-            position: absolute;
-            background: rgba(15, 20, 30, 0.8);
-            border: 1px solid #00ea8d;
-            color: #00ea8d;
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            font-family: monospace;
-            transform: translate(-50%, -50%); /* Ortalamak için */
-            text-shadow: 1px 1px 2px black;
-            white-space: nowrap;
+            position: absolute; background: rgba(15, 20, 30, 0.9); border: 1px solid #ffaa00; color: #ffaa00;
+            padding: 4px 8px; border-radius: 4px; font-size: 13px; font-weight: bold; font-family: monospace;
+            transform: translate(-50%, -50%); text-shadow: 1px 1px 2px black; white-space: nowrap;
+            z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -89,7 +61,7 @@
         
         <div class="input-group">
             <label>Şekil:</label>
-            <select id="shape-type" onchange="updateUI()">
+            <select id="shape-type">
                 <option value="cylinder">Silindir</option>
                 <option value="prism">Dikdörtgen Prizma</option>
                 <option value="sphere">Küre</option>
@@ -97,35 +69,18 @@
         </div>
 
         <h3>Birim Sistemi</h3>
-        <div class="input-group">
-            <label>Uzunluk Birimi:</label>
-            <input type="text" id="unit-len" value="cm" oninput="calculate()">
-        </div>
-        <div class="input-group">
-            <label>Kütle Birimi:</label>
-            <input type="text" id="unit-mass" value="g" oninput="calculate()">
-        </div>
+        <div class="input-group"><label>Uzunluk Birimi:</label><input type="text" id="unit-len" value="cm"></div>
+        <div class="input-group"><label>Kütle Birimi:</label><input type="text" id="unit-mass" value="g"></div>
         
         <h3>Cihaz Hataları (Mutlak)</h3>
-        <div class="input-group">
-            <label>Tartı (&Delta;m):</label>
-            <input type="number" id="delta-m" value="0.01" step="0.01" oninput="calculate()">
-        </div>
-        <div class="input-group">
-            <label>Kumpas (&Delta;x):</label>
-            <input type="number" id="delta-x" value="0.005" step="0.001" oninput="calculate()">
-        </div>
+        <div class="input-group"><label>Tartı (&Delta;m):</label><input type="number" id="delta-m" value="0.01" step="0.01"></div>
+        <div class="input-group"><label>Kumpas (&Delta;x):</label><input type="number" id="delta-x" value="0.005" step="0.001"></div>
         
         <h3>Ölçümler</h3>
-        <div class="input-group">
-            <label>Kütle (m):</label>
-            <input type="number" id="val-m" value="150" oninput="calculate()">
-        </div>
+        <div class="input-group"><label>Kütle (m):</label><input type="number" id="val-m" value="150"></div>
         
-        <!-- Dinamik Ölçüm Girdileri -->
         <div id="dynamic-inputs"></div>
         
-        <!-- Sonuç Ekranı -->
         <div id="result-box">
             <div class="result-row">Hacim (V): <span id="res-v">0</span></div>
             <div class="result-row">Yoğunluk (&rho;): <span id="res-rho">0</span></div>
@@ -138,7 +93,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        // --- 1. THREE.JS KURULUMU ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(20, 15, 25);
@@ -151,18 +105,171 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         
-        // Işıklar ve Ortam
         scene.add(new THREE.AmbientLight(0x404040, 2));
         const dirLight = new THREE.DirectionalLight(0xffffff, 1);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
-        scene.add(new THREE.GridHelper(50, 50, 0x444444, 0x222222)); // Zemin Izgarası
+        scene.add(new THREE.GridHelper(50, 50, 0x444444, 0x222222));
 
-        // Nesne Tutucular
         let currentMesh = null;
         let lineGroup = new THREE.Group();
         scene.add(lineGroup);
         
-        // Etiket Tutucu Dizi
         let activeLabels = [];
-        const labelsContainer = document.getElementById
+        const labelsContainer = document.getElementById('labels-container');
+
+        const material = new THREE.MeshPhysicalMaterial({
+            color: 0x0088ff, metalness: 0.1, roughness: 0.1, transparent: true, opacity: 0.6, side: THREE.DoubleSide
+        });
+        
+        // Çizgileri Mavi üstünde patlasın diye Turuncu (ffaa00) yaptık
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffaa00, depthTest: false, linewidth: 2 });
+
+        function addDimension(start, end, text, anchor) {
+            const points = [start, end];
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geo, lineMaterial);
+            lineGroup.add(line);
+            
+            const el = document.createElement('div');
+            el.className = 'dim-label';
+            el.innerText = text;
+            labelsContainer.appendChild(el);
+            
+            activeLabels.push({ el: el, pos: anchor });
+        }
+
+        function updateUI() {
+            const type = document.getElementById('shape-type').value;
+            const container = document.getElementById('dynamic-inputs');
+            let html = '';
+            
+            if(type === 'cylinder') {
+                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="number" id="val-r" value="5"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (h):</label><input type="number" id="val-h" value="10"></div>`;
+            } else if(type === 'prism') {
+                html += `<div class="input-group"><label>Kenar (a):</label><input type="number" id="val-a" value="8"></div>`;
+                html += `<div class="input-group"><label>Kenar (b):</label><input type="number" id="val-b" value="6"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (c):</label><input type="number" id="val-c" value="12"></div>`;
+            } else if(type === 'sphere') {
+                html += `<div class="input-group"><label>Yarıçap (r):</label><input type="number" id="val-r" value="6"></div>`;
+            }
+            container.innerHTML = html;
+            calculate();
+        }
+
+        function safeVal(id, fallback = 0.0001) {
+            const el = document.getElementById(id);
+            if(!el) return fallback;
+            const val = parseFloat(el.value);
+            return (isNaN(val) || val === 0) ? fallback : val;
+        }
+
+        function calculate() {
+            if(currentMesh) scene.remove(currentMesh);
+            lineGroup.clear();
+            labelsContainer.innerHTML = '';
+            activeLabels = [];
+
+            const type = document.getElementById('shape-type').value;
+            const unitL = document.getElementById('unit-len').value || "u";
+            const unitM = document.getElementById('unit-mass').value || "u";
+            
+            const dm = safeVal('delta-m', 0);
+            const dx = safeVal('delta-x', 0);
+            const m = safeVal('val-m', 1);
+            
+            let v = 0, rho = 0, bagil = 0, mutlak = 0;
+
+            if(type === 'cylinder') {
+                const r = safeVal('val-r', 1);
+                const h = safeVal('val-h', 1);
+                
+                v = Math.PI * Math.pow(r, 2) * h;
+                rho = m / v;
+                bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(2*(dx/r), 2) + Math.pow(dx/h, 2));
+                mutlak = rho * bagil;
+                
+                currentMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), material);
+                
+                // r ÇİZGİSİ: Şeklin içine girmesin diye üst kapağın biraz üzerine (h/2 + 0.5) havaya kaldırdık
+                addDimension(new THREE.Vector3(0, h/2 + 0.5, 0), new THREE.Vector3(r, h/2 + 0.5, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2, h/2 + 1.2, 0));
+                
+                // h ÇİZGİSİ: Şeklin dışına (r + 1.5) taşırdık
+                addDimension(new THREE.Vector3(r + 1.5, -h/2, 0), new THREE.Vector3(r + 1.5, h/2, 0), `h = ${h} ${unitL}`, new THREE.Vector3(r + 2.5, 0, 0));
+                
+            } else if(type === 'prism') {
+                const a = safeVal('val-a', 1);
+                const b = safeVal('val-b', 1);
+                const c = safeVal('val-c', 1);
+                
+                v = a * b * c;
+                rho = m / v;
+                bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(dx/a, 2) + Math.pow(dx/b, 2) + Math.pow(dx/c, 2));
+                mutlak = rho * bagil;
+                
+                currentMesh = new THREE.Mesh(new THREE.BoxGeometry(a, c, b), material);
+                currentMesh.position.y = c/2;
+
+                addDimension(new THREE.Vector3(-a/2, 0, b/2 + 0.5), new THREE.Vector3(a/2, 0, b/2 + 0.5), `a = ${a} ${unitL}`, new THREE.Vector3(0, -1, b/2 + 0.5));
+                addDimension(new THREE.Vector3(a/2 + 0.5, 0, -b/2), new THREE.Vector3(a/2 + 0.5, 0, b/2), `b = ${b} ${unitL}`, new THREE.Vector3(a/2 + 2, -1, 0));
+                addDimension(new THREE.Vector3(a/2 + 0.5, 0, -b/2 - 0.5), new THREE.Vector3(a/2 + 0.5, c, -b/2 - 0.5), `c = ${c} ${unitL}`, new THREE.Vector3(a/2 + 2, c/2, -b/2 - 0.5));
+
+            } else if(type === 'sphere') {
+                const r = safeVal('val-r', 1);
+                
+                v = (4/3) * Math.PI * Math.pow(r, 3);
+                rho = m / v;
+                bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(3*(dx/r), 2));
+                mutlak = rho * bagil;
+                
+                currentMesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 32), material);
+                currentMesh.position.y = r;
+                
+                // r ÇİZGİSİ: Kürenin merkezinden dışarı doğru çok net bir şekilde çizdik
+                addDimension(new THREE.Vector3(0, r, 0), new THREE.Vector3(r + 0.5, r, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2 + 0.5, r + 0.8, 0));
+            }
+            
+            scene.add(currentMesh);
+            
+            document.getElementById('res-v').innerText = `${(v || 0).toFixed(2)} ${unitL}³`;
+            document.getElementById('res-rho').innerText = `${(rho || 0).toFixed(4)} ${unitM}/${unitL}³`;
+            document.getElementById('res-bagil').innerText = ((bagil || 0) * 100).toFixed(2);
+            document.getElementById('res-final').innerHTML = `&rho; = ${(rho || 0).toFixed(3)} &plusmn; ${(mutlak || 0).toFixed(3)} ${unitM}/${unitL}³`;
+        }
+
+        document.getElementById('ui-panel').addEventListener('input', calculate);
+        document.getElementById('shape-type').addEventListener('change', updateUI);
+
+        const tempV = new THREE.Vector3();
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            
+            activeLabels.forEach(item => {
+                tempV.copy(item.pos);
+                tempV.project(camera);
+                if(tempV.z > 1) {
+                    item.el.style.display = 'none';
+                } else {
+                    item.el.style.display = 'block';
+                    const x = (tempV.x *  .5 + .5) * window.innerWidth;
+                    const y = (tempV.y * -.5 + .5) * window.innerHeight;
+                    item.el.style.left = `${x}px`;
+                    item.el.style.top = `${y}px`;
+                }
+            });
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        updateUI();
+        animate();
+    </script>
+</body>
+</html>
