@@ -3,51 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Fizik Hata & Yoğunluk Simülasyonu</title>
+    <title>Gelişmiş Fizik Hata Analizi</title>
     <style>
+        :root {
+            --bg-color: #050914;
+            --panel-bg: rgba(13, 19, 33, 0.85);
+            --primary: #00f0ff;
+            --accent: #ff003c;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: rgba(0, 240, 255, 0.2);
+        }
         body {
-            margin: 0; overflow: hidden; background-color: #0b0e14;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff;
+            margin: 0; overflow: hidden; background-color: var(--bg-color);
+            font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text-main);
         }
-        #canvas-container { width: 100vw; height: 100vh; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
         
-        #ui-panel {
-            position: absolute; top: 15px; left: 15px;
-            background: rgba(15, 20, 30, 0.85); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1); padding: 15px 20px;
-            border-radius: 12px; width: 300px; max-height: 90vh; overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100;
+        /* Arayüz Izgarası (Dashboard Layout) */
+        .dashboard {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10; display: grid;
+            grid-template-columns: 320px 1fr 320px; grid-template-rows: 1fr 220px;
+            padding: 20px; box-sizing: border-box; gap: 20px;
         }
-        
-        #ui-panel::-webkit-scrollbar { width: 6px; }
-        #ui-panel::-webkit-scrollbar-thumb { background: rgba(0, 234, 141, 0.5); border-radius: 3px; }
-        
-        h2 { margin-top: 0; font-size: 1.1rem; color: #00ea8d; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 15px; }
-        h3 { font-size: 0.9rem; color: #aaa; margin: 15px 0 5px 0; border-bottom: 1px dashed #333; padding-bottom: 3px; }
-        
-        .input-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .input-group label { font-size: 0.85rem; color: #ccc; }
+
+        .panel {
+            background: var(--panel-bg); backdrop-filter: blur(10px);
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 20px; pointer-events: auto; overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .left-panel { grid-column: 1; grid-row: 1 / 3; }
+        .bottom-panel { grid-column: 2; grid-row: 2; display: flex; gap: 20px; }
+        .right-panel { grid-column: 3; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 15px; }
+
+        h2 { margin: 0 0 20px 0; font-size: 1.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+        h3 { font-size: 0.9rem; color: var(--text-muted); margin: 15px 0 10px 0; text-transform: uppercase; }
+
+        .input-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .input-group label { font-size: 0.85rem; color: var(--text-muted); }
         .input-group input, .input-group select {
-            width: 100px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
-            color: #00ea8d; padding: 4px 8px; border-radius: 4px; outline: none; font-weight: bold;
+            width: 90px; background: rgba(0,0,0,0.5); border: 1px solid var(--border);
+            color: var(--primary); padding: 6px; border-radius: 4px; outline: none; font-weight: bold; font-family: monospace;
         }
-        .input-group input[type="text"] { color: #fff; }
         
-        #result-box {
-            margin-top: 15px; padding: 12px; background: rgba(0, 234, 141, 0.1);
-            border: 1px solid rgba(0, 234, 141, 0.3); border-radius: 8px;
+        /* Sonuç Kartları */
+        .stat-card {
+            background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border);
+            border-left: 4px solid var(--primary); padding: 15px; border-radius: 4px;
         }
-        .result-row { margin-bottom: 5px; font-size: 0.85rem; }
-        .result-highlight { font-size: 1rem; color: #00ea8d; font-weight: bold; margin-top: 8px; display: block; }
-        
-        #labels-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
-        
+        .stat-card.danger { border-left-color: var(--accent); }
+        .stat-card .title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+        .stat-card .value { font-size: 1.4rem; font-weight: bold; color: #fff; font-family: monospace; }
+        .stat-card .sub-value { font-size: 0.85rem; color: var(--primary); margin-top: 5px; }
+
+        /* Adım Adım Formül İncelemesi Kutusu */
+        .step-box {
+            flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--border);
+            border-radius: 4px; padding: 15px; display: flex; flex-direction: column;
+        }
+        .step-header { font-size: 0.8rem; color: var(--primary); font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
+        .math-line { font-family: 'Consolas', monospace; font-size: 0.95rem; color: #fff; margin-bottom: 8px; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px; border-left: 2px solid var(--accent); }
+
+        /* Etiketler (Three.js üstüne binen) */
+        #labels-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; }
         .dim-label {
-            position: absolute; background: rgba(15, 20, 30, 0.9); border: 1px solid #ffaa00; color: #ffaa00;
-            padding: 4px 8px; border-radius: 4px; font-size: 13px; font-weight: bold; font-family: monospace;
-            transform: translate(-50%, -50%); text-shadow: 1px 1px 2px black; white-space: nowrap;
-            z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            position: absolute; background: rgba(5, 9, 20, 0.9); border: 1px solid var(--primary); color: var(--primary);
+            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; font-family: monospace;
+            transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
         }
+        
+        /* Hata Gösterge Çubuğu */
+        .progress-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; transition: 0.3s; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -55,217 +86,291 @@
     <div id="canvas-container"></div>
     <div id="labels-container"></div>
     
-    <div id="ui-panel">
-        <h2>Fizik Hata Laboratuvarı</h2>
-        
-        <div class="input-group">
-            <label>Şekil:</label>
-            <select id="shape-type">
-                <option value="cylinder">Silindir</option>
-                <option value="prism">Dikdörtgen Prizma</option>
-                <option value="sphere">Küre</option>
-            </select>
+    <div class="dashboard">
+        <!-- SOL PANEL: GİRDİLER -->
+        <div class="panel left-panel">
+            <h2>Parametre Girişi</h2>
+            <div class="input-group">
+                <label>Test Şekli:</label>
+                <select id="shape-type">
+                    <option value="cylinder">Silindir</option>
+                    <option value="prism">Dikdörtgen Prizma</option>
+                    <option value="sphere">Küre</option>
+                </select>
+            </div>
+            
+            <h3>Birim & Hassasiyet</h3>
+            <div class="input-group"><label>Uzunluk (L):</label><input type="text" id="unit-len" value="cm"></div>
+            <div class="input-group"><label>Kütle (M):</label><input type="text" id="unit-mass" value="g"></div>
+            <div class="input-group"><label>Kumpas Hatası (&Delta;x):</label><input type="text" id="delta-x" value="0.05"></div>
+            <div class="input-group"><label>Tartı Hatası (&Delta;m):</label><input type="text" id="delta-m" value="0.01"></div>
+            
+            <h3>Ölçülen Değerler</h3>
+            <div class="input-group"><label>Kütle (m):</label><input type="text" id="val-m" value="120"></div>
+            <div id="dynamic-inputs"></div>
+            
+            <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted); border-top: 1px dashed var(--text-muted); padding-top: 15px;">
+                * 3D görünümdeki kırmızı kafes tel (wireframe), ölçüm cihazlarının yarattığı maksimum hata payını (tolerans zarfını) fiziksel olarak gösterir.
+            </div>
         </div>
 
-        <h3>Birim Sistemi</h3>
-        <div class="input-group"><label>Uzunluk Birimi:</label><input type="text" id="unit-len" value="cm"></div>
-        <div class="input-group"><label>Kütle Birimi:</label><input type="text" id="unit-mass" value="g"></div>
-        
-        <h3>Cihaz Hataları (Mutlak)</h3>
-        <div class="input-group"><label>Tartı (&Delta;m):</label><input type="text" id="delta-m" value="0.01"></div>
-        <div class="input-group"><label>Kumpas (&Delta;x):</label><input type="text" id="delta-x" value="0.005"></div>
-        
-        <h3>Ölçümler</h3>
-        <div class="input-group"><label>Kütle (m):</label><input type="text" id="val-m" value="150"></div>
-        
-        <div id="dynamic-inputs"></div>
-        
-        <div id="result-box">
-            <div class="result-row">Hacim (V): <span id="res-v">0</span></div>
-            <div class="result-row">Yoğunluk (&rho;): <span id="res-rho">0</span></div>
-            <div class="result-row">Bağıl Hata: <span id="res-bagil">0</span>%</div>
-            <span class="result-highlight" id="res-final">&rho; = 0.000 &plusmn; 0.000</span>
+        <!-- ALT PANEL: ADIM ADIM MATEMATİK İNCELEMESİ -->
+        <div class="bottom-panel" id="math-breakdown">
+            <!-- JavaScript ile doldurulacak -->
+        </div>
+
+        <!-- SAĞ PANEL: ÖZET KARTLARI -->
+        <div class="panel right-panel">
+            <h2>Analiz Sonuçları</h2>
+            
+            <div class="stat-card">
+                <div class="title">Mutlak Yoğunluk (&rho;)</div>
+                <div class="value" id="stat-rho">0.000</div>
+                <div class="sub-value" id="stat-unit">g/cm³</div>
+            </div>
+            
+            <div class="stat-card danger">
+                <div class="title">Maksimum Mutlak Hata</div>
+                <div class="value" id="stat-mutlak">&plusmn; 0.000</div>
+                <div class="sub-value">Kuadratik Yayılım</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="title">Bağıl Hata Durumu</div>
+                <div class="value" id="stat-bagil">% 0.00</div>
+                <div class="progress-bar"><div class="progress-fill" id="stat-bar" style="background: var(--primary);"></div></div>
+                <div class="status-badge" id="stat-badge" style="background: rgba(0, 240, 255, 0.2); color: var(--primary);">HESAPLANIYOR</div>
+            </div>
         </div>
     </div>
 
-    <!-- Daha güvenilir bir CDN altyapısına geçildi -->
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
+        // --- 1. SAHNE KURULUMU ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(20, 15, 25);
-        
+        camera.position.set(25, 20, 30);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        // EKLENTİ ÇÖKME KORUMASI (Ağ engellese bile siyah ekranda kalmaz)
         let controls = null;
-        try {
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-        } catch(e) {
-            console.warn("Kamera kontrolleri yüklenemedi, sabit kamera kullanılacak.");
-        }
+        try { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; } catch(e) {}
         
-        scene.add(new THREE.AmbientLight(0x404040, 2));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const dirLight = new THREE.DirectionalLight(0xffffff, 1);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
-        scene.add(new THREE.GridHelper(50, 50, 0x444444, 0x222222));
+        
+        // Fütüristik Zemin Izgarası
+        const grid = new THREE.GridHelper(60, 60, 0x00f0ff, 0x112233);
+        grid.position.y = -0.01;
+        grid.material.opacity = 0.2;
+        grid.material.transparent = true;
+        scene.add(grid);
 
-        let currentMesh = null;
+        let mainMesh = null;
+        let wireframeMesh = null; // Hata Zarfı
         let lineGroup = new THREE.Group();
         scene.add(lineGroup);
         
         let activeLabels = [];
         const labelsContainer = document.getElementById('labels-container');
 
-        const material = new THREE.MeshPhysicalMaterial({
-            color: 0x0088ff, metalness: 0.1, roughness: 0.1, transparent: true, opacity: 0.6, side: THREE.DoubleSide
-        });
-        
-        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffaa00, depthTest: false });
+        // Materyaller
+        const matSolid = new THREE.MeshPhysicalMaterial({ color: 0x00f0ff, metalness: 0.2, roughness: 0.1, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+        const matWire = new THREE.MeshBasicMaterial({ color: 0xff003c, wireframe: true, transparent: true, opacity: 0.5 });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
 
-        function addDimension(start, end, text, anchor) {
-            const points = [start, end];
-            const geo = new THREE.BufferGeometry().setFromPoints(points);
-            const line = new THREE.Line(geo, lineMaterial);
-            lineGroup.add(line);
-            
+        function addDim(start, end, text, anchor) {
+            const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+            lineGroup.add(new THREE.Line(geo, lineMaterial));
             const el = document.createElement('div');
-            el.className = 'dim-label';
-            el.innerText = text;
+            el.className = 'dim-label'; el.innerText = text;
             labelsContainer.appendChild(el);
-            
             activeLabels.push({ el: el, pos: anchor });
         }
 
-        function updateUI() {
+        // --- 2. KULLANICI ARAYÜZÜ YÖNETİMİ ---
+        function updateInputs() {
             const type = document.getElementById('shape-type').value;
-            const container = document.getElementById('dynamic-inputs');
+            const cont = document.getElementById('dynamic-inputs');
             let html = '';
-            
             if(type === 'cylinder') {
                 html += `<div class="input-group"><label>Yarıçap (r):</label><input type="text" id="val-r" value="5"></div>`;
-                html += `<div class="input-group"><label>Yükseklik (h):</label><input type="text" id="val-h" value="10"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (h):</label><input type="text" id="val-h" value="12"></div>`;
             } else if(type === 'prism') {
                 html += `<div class="input-group"><label>Kenar (a):</label><input type="text" id="val-a" value="8"></div>`;
                 html += `<div class="input-group"><label>Kenar (b):</label><input type="text" id="val-b" value="6"></div>`;
-                html += `<div class="input-group"><label>Yükseklik (c):</label><input type="text" id="val-c" value="12"></div>`;
+                html += `<div class="input-group"><label>Yükseklik (c):</label><input type="text" id="val-c" value="15"></div>`;
             } else if(type === 'sphere') {
                 html += `<div class="input-group"><label>Yarıçap (r):</label><input type="text" id="val-r" value="6"></div>`;
             }
-            container.innerHTML = html;
-            calculate();
+            cont.innerHTML = html;
+            calc();
         }
 
-        // VİRGÜL DÜZELTİCİ FONKSİYON (Türkçe klavye uyumu)
-        function safeVal(id, fallback = 0.0001) {
+        function safeVal(id, fb = 0.0001) {
             const el = document.getElementById(id);
-            if(!el) return fallback;
-            // İçindeki virgülü zorla noktaya çevir ki sistem anlayabilsin
-            let valStr = el.value.replace(',', '.');
-            const val = parseFloat(valStr);
-            return (isNaN(val) || val === 0) ? fallback : val;
+            if(!el) return fb;
+            let v = parseFloat(el.value.replace(',', '.'));
+            return (isNaN(v) || v <= 0) ? fb : v;
         }
 
-        function calculate() {
-            if(currentMesh) scene.remove(currentMesh);
-            
-            // Çizgileri güvenli temizleme yöntemi (Eski sürüm çökmelerine karşı)
-            while(lineGroup.children.length > 0){ 
-                lineGroup.remove(lineGroup.children[0]); 
-            }
-            
-            labelsContainer.innerHTML = '';
-            activeLabels = [];
+        // --- 3. HESAPLAMA VE 3D MODELLEME ---
+        function calc() {
+            if(mainMesh) { scene.remove(mainMesh); scene.remove(wireframeMesh); }
+            while(lineGroup.children.length > 0) lineGroup.remove(lineGroup.children[0]);
+            labelsContainer.innerHTML = ''; activeLabels = [];
 
             const type = document.getElementById('shape-type').value;
-            const unitL = document.getElementById('unit-len').value || "u";
-            const unitM = document.getElementById('unit-mass').value || "u";
-            
-            const dm = safeVal('delta-m', 0);
-            const dx = safeVal('delta-x', 0);
-            const m = safeVal('val-m', 1);
+            const uL = document.getElementById('unit-len').value || "u";
+            const uM = document.getElementById('unit-mass').value || "u";
+            const dm = safeVal('delta-m', 0); const dx = safeVal('delta-x', 0); const m = safeVal('val-m', 1);
             
             let v = 0, rho = 0, bagil = 0, mutlak = 0;
+            let mathStepsHTML = '';
 
             if(type === 'cylinder') {
-                const r = safeVal('val-r', 1);
-                const h = safeVal('val-h', 1);
-                
+                const r = safeVal('val-r', 1); const h = safeVal('val-h', 1);
                 v = Math.PI * Math.pow(r, 2) * h;
                 rho = m / v;
                 bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(2*(dx/r), 2) + Math.pow(dx/h, 2));
                 mutlak = rho * bagil;
                 
-                currentMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), material);
+                // Ana Şekil
+                mainMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), matSolid);
+                mainMesh.position.y = h/2;
+                // HATA ZARFI (Error Wireframe) -> Kumpas hatası kadar dışarı taşan alan
+                wireframeMesh = new THREE.Mesh(new THREE.CylinderGeometry(r+dx, r+dx, h+(dx*2), 16), matWire);
+                wireframeMesh.position.y = h/2;
                 
-                addDimension(new THREE.Vector3(0, h/2 + 0.5, 0), new THREE.Vector3(r, h/2 + 0.5, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2, h/2 + 1.2, 0));
-                addDimension(new THREE.Vector3(r + 1.5, -h/2, 0), new THREE.Vector3(r + 1.5, h/2, 0), `h = ${h} ${unitL}`, new THREE.Vector3(r + 2.5, 0, 0));
-                
-            } else if(type === 'prism') {
-                const a = safeVal('val-a', 1);
-                const b = safeVal('val-b', 1);
-                const c = safeVal('val-c', 1);
-                
-                v = a * b * c;
-                rho = m / v;
+                addDim(new THREE.Vector3(0, h + 0.5, 0), new THREE.Vector3(r, h + 0.5, 0), `r = ${r}`, new THREE.Vector3(r/2, h + 1, 0));
+                addDim(new THREE.Vector3(r + 1.5, 0, 0), new THREE.Vector3(r + 1.5, h, 0), `h = ${h}`, new THREE.Vector3(r + 2.5, h/2, 0));
+
+                mathStepsHTML = `
+                    <div class="step-box">
+                        <div class="step-header">1. Hacim (V) Hesaplama</div>
+                        <div class="math-line">V = &pi; &middot; r&sup2; &middot; h</div>
+                        <div class="math-line">V = 3.14 &middot; ${r}&sup2; &middot; ${h}</div>
+                        <div class="math-line">V = ${v.toFixed(3)} ${uL}&sup3;</div>
+                    </div>
+                    <div class="step-box">
+                        <div class="step-header">2. Yoğunluk ve Hata Formülü</div>
+                        <div class="math-line">&rho; = m / V &rarr; ${m} / ${v.toFixed(2)} = ${rho.toFixed(3)}</div>
+                        <div class="math-line">&Delta;&rho;/&rho; = &radic;[ (&Delta;m/m)&sup2; + (2&Delta;r/r)&sup2; + (&Delta;h/h)&sup2; ]</div>
+                        <div class="math-line">&Delta;&rho;/&rho; = &radic;[ (${dm}/${m})&sup2; + (2*${dx}/${r})&sup2; + (${dx}/${h})&sup2; ]</div>
+                    </div>
+                `;
+            } 
+            else if(type === 'prism') {
+                const a = safeVal('val-a', 1); const b = safeVal('val-b', 1); const c = safeVal('val-c', 1);
+                v = a * b * c; rho = m / v;
                 bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(dx/a, 2) + Math.pow(dx/b, 2) + Math.pow(dx/c, 2));
                 mutlak = rho * bagil;
                 
-                currentMesh = new THREE.Mesh(new THREE.BoxGeometry(a, c, b), material);
-                currentMesh.position.y = c/2;
+                mainMesh = new THREE.Mesh(new THREE.BoxGeometry(a, c, b), matSolid);
+                mainMesh.position.y = c/2;
+                wireframeMesh = new THREE.Mesh(new THREE.BoxGeometry(a+(dx*2), c+(dx*2), b+(dx*2)), matWire);
+                wireframeMesh.position.y = c/2;
 
-                addDimension(new THREE.Vector3(-a/2, 0, b/2 + 0.5), new THREE.Vector3(a/2, 0, b/2 + 0.5), `a = ${a} ${unitL}`, new THREE.Vector3(0, -1, b/2 + 0.5));
-                addDimension(new THREE.Vector3(a/2 + 0.5, 0, -b/2), new THREE.Vector3(a/2 + 0.5, 0, b/2), `b = ${b} ${unitL}`, new THREE.Vector3(a/2 + 2, -1, 0));
-                addDimension(new THREE.Vector3(a/2 + 0.5, 0, -b/2 - 0.5), new THREE.Vector3(a/2 + 0.5, c, -b/2 - 0.5), `c = ${c} ${unitL}`, new THREE.Vector3(a/2 + 2, c/2, -b/2 - 0.5));
+                addDim(new THREE.Vector3(-a/2, 0, b/2 + 0.5), new THREE.Vector3(a/2, 0, b/2 + 0.5), `a = ${a}`, new THREE.Vector3(0, -1, b/2 + 0.5));
+                addDim(new THREE.Vector3(a/2 + 0.5, 0, -b/2), new THREE.Vector3(a/2 + 0.5, 0, b/2), `b = ${b}`, new THREE.Vector3(a/2 + 2, -1, 0));
+                addDim(new THREE.Vector3(a/2 + 0.5, 0, -b/2 - 0.5), new THREE.Vector3(a/2 + 0.5, c, -b/2 - 0.5), `c = ${c}`, new THREE.Vector3(a/2 + 2, c/2, -b/2 - 0.5));
 
-            } else if(type === 'sphere') {
+                mathStepsHTML = `
+                    <div class="step-box">
+                        <div class="step-header">1. Hacim (V) Hesaplama</div>
+                        <div class="math-line">V = a &middot; b &middot; c</div>
+                        <div class="math-line">V = ${a} &middot; ${b} &middot; ${c}</div>
+                        <div class="math-line">V = ${v.toFixed(3)} ${uL}&sup3;</div>
+                    </div>
+                    <div class="step-box">
+                        <div class="step-header">2. Yoğunluk ve Hata Formülü</div>
+                        <div class="math-line">&rho; = m / V &rarr; ${m} / ${v.toFixed(2)} = ${rho.toFixed(3)}</div>
+                        <div class="math-line">&Delta;&rho;/&rho; = &radic;[ (&Delta;m/m)&sup2; + (&Delta;a/a)&sup2; + (&Delta;b/b)&sup2; + (&Delta;c/c)&sup2; ]</div>
+                    </div>
+                `;
+            } 
+            else if(type === 'sphere') {
                 const r = safeVal('val-r', 1);
-                
-                v = (4/3) * Math.PI * Math.pow(r, 3);
-                rho = m / v;
+                v = (4/3) * Math.PI * Math.pow(r, 3); rho = m / v;
                 bagil = Math.sqrt(Math.pow(dm/m, 2) + Math.pow(3*(dx/r), 2));
                 mutlak = rho * bagil;
                 
-                currentMesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 32), material);
-                currentMesh.position.y = r;
+                mainMesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 32), matSolid);
+                mainMesh.position.y = r;
+                wireframeMesh = new THREE.Mesh(new THREE.SphereGeometry(r+dx, 16, 16), matWire);
+                wireframeMesh.position.y = r;
                 
-                addDimension(new THREE.Vector3(0, r, 0), new THREE.Vector3(r + 0.5, r, 0), `r = ${r} ${unitL}`, new THREE.Vector3(r/2 + 0.5, r + 0.8, 0));
+                addDim(new THREE.Vector3(0, r, 0), new THREE.Vector3(r + 0.5, r, 0), `r = ${r}`, new THREE.Vector3(r/2 + 0.5, r + 0.8, 0));
+
+                mathStepsHTML = `
+                    <div class="step-box">
+                        <div class="step-header">1. Hacim (V) Hesaplama</div>
+                        <div class="math-line">V = (4/3) &middot; &pi; &middot; r&sup3;</div>
+                        <div class="math-line">V = 1.33 &middot; 3.14 &middot; ${r}&sup3;</div>
+                        <div class="math-line">V = ${v.toFixed(3)} ${uL}&sup3;</div>
+                    </div>
+                    <div class="step-box">
+                        <div class="step-header">2. Yoğunluk ve Hata Formülü</div>
+                        <div class="math-line">&rho; = m / V &rarr; ${rho.toFixed(3)}</div>
+                        <div class="math-line">&Delta;&rho;/&rho; = &radic;[ (&Delta;m/m)&sup2; + (3&Delta;r/r)&sup2; ]</div>
+                    </div>
+                `;
             }
             
-            scene.add(currentMesh);
+            scene.add(mainMesh); scene.add(wireframeMesh);
             
-            document.getElementById('res-v').innerText = `${(v || 0).toFixed(2)} ${unitL}³`;
-            document.getElementById('res-rho').innerText = `${(rho || 0).toFixed(4)} ${unitM}/${unitL}³`;
-            document.getElementById('res-bagil').innerText = ((bagil || 0) * 100).toFixed(2);
-            document.getElementById('res-final').innerHTML = `&rho; = ${(rho || 0).toFixed(3)} &plusmn; ${(mutlak || 0).toFixed(3)} ${unitM}/${unitL}³`;
+            // Panele Yazdırma
+            document.getElementById('math-breakdown').innerHTML = mathStepsHTML;
+            document.getElementById('stat-rho').innerText = rho.toFixed(4);
+            document.getElementById('stat-unit').innerText = `${uM}/${uL}³`;
+            document.getElementById('stat-mutlak').innerHTML = `&plusmn; ${mutlak.toFixed(4)}`;
+            
+            const bagilYuzde = (bagil * 100);
+            document.getElementById('stat-bagil').innerText = `% ${bagilYuzde.toFixed(2)}`;
+            
+            // Hassasiyet Göstergesi Mantığı
+            const bar = document.getElementById('stat-bar');
+            const badge = document.getElementById('stat-badge');
+            bar.style.width = Math.min(bagilYuzde * 10, 100) + '%';
+            
+            if(bagilYuzde < 2.0) {
+                bar.style.background = '#00ea8d'; badge.style.color = '#00ea8d';
+                badge.style.background = 'rgba(0, 234, 141, 0.2)'; badge.innerText = "YÜKSEK HASSASİYET";
+            } else if(bagilYuzde < 5.0) {
+                bar.style.background = '#ffaa00'; badge.style.color = '#ffaa00';
+                badge.style.background = 'rgba(255, 170, 0, 0.2)'; badge.innerText = "KABUL EDİLEBİLİR";
+            } else {
+                bar.style.background = '#ff003c'; badge.style.color = '#ff003c';
+                badge.style.background = 'rgba(255, 0, 60, 0.2)'; badge.innerText = "YÜKSEK HATA - RİSKLİ";
+            }
         }
 
-        document.getElementById('ui-panel').addEventListener('input', calculate);
-        document.getElementById('shape-type').addEventListener('change', updateUI);
+        document.querySelector('.left-panel').addEventListener('input', calc);
+        document.getElementById('shape-type').addEventListener('change', updateInputs);
 
         const tempV = new THREE.Vector3();
         function animate() {
             requestAnimationFrame(animate);
             if(controls) controls.update();
             
+            // 3D Objelere yavaş dönme animasyonu ekledik (Daha havalı durması için)
+            if(mainMesh && wireframeMesh) {
+                mainMesh.rotation.y += 0.002;
+                wireframeMesh.rotation.y += 0.002;
+            }
+
             activeLabels.forEach(item => {
-                tempV.copy(item.pos);
-                tempV.project(camera);
-                if(tempV.z > 1) {
-                    item.el.style.display = 'none';
-                } else {
+                tempV.copy(item.pos); tempV.project(camera);
+                if(tempV.z > 1) { item.el.style.display = 'none'; } else {
                     item.el.style.display = 'block';
-                    const x = (tempV.x *  .5 + .5) * window.innerWidth;
-                    const y = (tempV.y * -.5 + .5) * window.innerHeight;
-                    item.el.style.left = `${x}px`;
-                    item.el.style.top = `${y}px`;
+                    item.el.style.left = `${(tempV.x * .5 + .5) * window.innerWidth}px`;
+                    item.el.style.top = `${(tempV.y * -.5 + .5) * window.innerHeight}px`;
                 }
             });
             renderer.render(scene, camera);
@@ -277,9 +382,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Simülasyonu başlat
-        updateUI();
-        animate();
+        updateInputs(); animate();
     </script>
 </body>
 </html>
